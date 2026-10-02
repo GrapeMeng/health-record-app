@@ -16,9 +16,11 @@
   const LS_KEY = 'healthAppV1';        // 业务数据键（结构不改，需求 §三.8）
   /* —— 状态机（§2.3） —— */
   const STATE = { UNCONFIGURED: 'unconfigured', CONFIGURING: 'configuring', CONNECTED: 'connected', SYNCING: 'syncing', CONFLICT: 'conflict', OFFLINE: 'offline', ERROR: 'error' };
-  let state = STATE.UNCONFIGURED; if (typeof module === 'undefined' && getConfig()) state = STATE.CONNECTED; // 浏览器：已配置设备加载即已连接
   /* —— 注入缝（§2.8）：模块级 setter，缺省 null → 生产实现 —— */
+  /* 声明必须先于下方 state 初始化：浏览器（无 module）分支在模块顶层调用 getConfig() → storage() 读 _storage，
+     let 声明在后会触发 TDZ（ReferenceError: Cannot access '_storage' before initialization）→ 整模块加载失败 */
   let _storage = null, _confirm = null, _now = null;
+  let state = STATE.UNCONFIGURED; if (typeof module === 'undefined' && getConfig()) state = STATE.CONNECTED; // 浏览器：已配置设备加载即已连接
   function inject(deps) { deps = deps || {}; _storage = deps.storage ?? null; _confirm = deps.confirm ?? null; _now = deps.now ?? null; }
   function storage() { if (_storage) return _storage; return (typeof localStorage !== 'undefined') ? localStorage : null; }
   function confirmFn() {
