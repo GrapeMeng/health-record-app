@@ -94,16 +94,19 @@
     }
     return null;
   }
-  /* 写云端：PUT 带 sha 乐观锁；422 = sha 失效，由调用方重走冲突流程 */
+  /* 写云端：新建 POST（无 sha，Gitee 自动创建 data/ 目录）；更新 PUT 带 sha 乐观锁；
+     422 = sha 失效，由调用方重走冲突流程 */
   async function writeRemote(remote, file) {
     const cfg = getConfig();
     const paths = (remote && remote.path) ? [remote.path] : [FILE_PATH, ROOT_PATH];
     let lastErr = null;
+    // 缺陷修复：Gitee 新建必须 POST 且不带 sha；旧实现固定 PUT 且新建（无 remote）无 sha → 400「sha is missing / sha is empty」
+    const isUpdate = !!(remote && remote.sha);
     for (const p of paths) {
       const body = { access_token: cfg.token, content: bytesToB64(utf8ToBytes(JSON.stringify(file))), message: '健康记录同步', branch: 'master' };
-      if (remote && remote.sha) body.sha = remote.sha;
+      if (isUpdate) body.sha = remote.sha;
       const resp = await apiFetch('/repos/' + repoPath(cfg.repo) + '/contents/' + p, {
-        method: 'PUT',
+        method: isUpdate ? 'PUT' : 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
@@ -233,7 +236,7 @@
     setState(STATE.CONNECTED); markSynced();
     return { backupKey, persons: countPersons(db) };
   }
-  /* 共享动作：本机数据上传（构建载荷 → PUT → lastUpdated 落定 → 清队列 → 标记已同步） */
+  /* 共享动作：本机数据上传（构建载荷 → 写云端（更新 PUT 带 sha / 新建 POST）→ lastUpdated 落定 → 清队列 → 标记已同步） */
   async function putLocalFile(remoteFile, db) {
     const file = await buildRemoteFile(db, remoteFile); const wrote = await writeRemote(remoteFile, file);
     setLastUpdated(file.updatedAt); clearPending();
@@ -256,7 +259,7 @@
     setState(STATE.ERROR);
     return { ok: false, code: (e && e.code) || 'error', message: (e && e.message) || '同步失败' };
   }
-  /* —— push（§2.4.2：远端新 → 冲突弹窗；本机新 → PUT 带 sha；422 → 重读重走，用例 C7） —— */
+  /* —— push（§2.4.2：远端新 → 冲突弹窗；本机新 → 写云端（更新 PUT 带 sha / 新建 POST）；422 → 重读重走，用例 C7） —— */
   async function push() {
     const cfg = getConfig(); if (!cfg) return { ok: false, code: 'unconfigured', message: '尚未配置云同步' };
     setState(STATE.SYNCING);
