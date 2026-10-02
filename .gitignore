@@ -1,0 +1,10 @@
+# 测试文件不发布（公开仓 = 14 交付文件 + 本 .gitignore；B02 部署设计 §2.1）
+js/sync.test.mjs
+
+# 系统临时文件
+Thumbs.db
+Desktop.ini
+
+# 日志与临时文件
+*.log
+~$*

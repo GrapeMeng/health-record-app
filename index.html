@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!-- ================= 头部 ================= -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#2f9e6e">
+<meta name="description" content="家庭健康数据记录：身高体重、血压、血糖、过敏药物、经期周期，支持多成员与云同步">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>健康记录</title>
+<!-- PWA 清单与图标（R16） -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+
+<!-- ================= 顶部栏 ================= -->
+<header>
+
+  <div class="row">
+    <h1>健康记录</h1>
+    <div style="display:flex;gap:8px;">
+      <button class="small" id="exportBtn" title="导出备份">⬇ 备份</button>
+      <button class="small" id="settingsOpenBtn" title="设置">⚙️</button>
+    </div>
+  </div>
+  <!-- 同步状态行（R18，文案由 js/sync-ui.js 渲染；点按进入设置） -->
+  <div class="sync-status hidden" id="syncStatus"></div>
+</header>
+
+<!-- ================= 成员横条 ================= -->
+<div class="persons" id="personBar"></div>
+
+<!-- ================= 主体（记录 / 经期 / 项目 三页签） ================= -->
+<main>
+  <div class="layout">
+    <div class="layout-left" id="insPanel"></div>
+    <div class="layout-right">
+
+      <!-- 记录页（R2–R7） -->
+      <div id="tab-records">
+
+        <div id="itemsList"></div>
+
+      </div>
+
+      <!-- 经期页（R8–R11） -->
+      <div id="tab-periods" class="hidden">
+        <div class="card">
+          <h2>月经周期</h2>
+
+          <div class="stats" id="periodStats"></div>
+          <div id="periodOverdueWarn" class="overdue-warn hidden">⚠️ <span id="overdueWarnText"></span></div>
+          <div id="calBox"></div>
+          <form class="row" id="periodForm">
+            <input type="date" id="periodStart" required>
+            <span class="muted">至</span>
+            <input type="date" id="periodEnd">
+            <button type="submit" class="primary">记录本次</button>
+          </form>
+          <p id="periodWarn" class="warn-text hidden">⚠️ 超过 7 天，请注意身体</p>
+          <div class="period-list" id="periodList"></div>
+          <p class="note">每次经期填开始和结束日期；超过 7 天会标红提醒（属异常，建议关注身体）。记录自动按时间先后排列，并计算间隔和平均周期。</p>
+        </div>
+      </div>
+
+      <!-- 项目页（R7：自定义项目） -->
+      <div id="tab-items" class="hidden">
+        <div class="card">
+          <h2>记录项目</h2>
+
+          <div id="itemsManage"></div>
+
+          <div class="section-title">添加新项目</div>
+          <form id="itemForm">
+            <div class="row" style="margin-bottom:8px;">
+              <input type="text" id="niName" placeholder="项目名，如：步数" required>
+            </div>
+            <div class="row" style="margin-bottom:8px;">
+              <select id="niType">
+                <option value="num">数值型</option>
+                <option value="text">文字型</option>
+              </select>
+              <input type="text" id="niUnit" placeholder="单位，如：步（文字型留空）">
+            </div>
+            <button type="submit" class="primary">添加</button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ================= 设置（右上角⚙️打开，全屏覆盖） ================= -->
+<div id="settingsOverlay" class="hidden">
+  <div class="settings-head">
+    <h2>设置</h2>
+    <button class="ghost" id="settingsCloseBtn">✕ 关闭</button>
+  </div>
+  <div class="settings-body">
+
+    <!-- 人员管理（R1） -->
+    <div class="card">
+      <h2>人员管理</h2>
+
+      <div id="personsManage"></div>
+
+      <p class="note">每人的记录、项目和经期数据各自独立，互不干扰。女性成员自动启用「经期」记录。删除成员会同时删除其全部数据。</p>
+    </div>
+
+    <!-- 备份与恢复（R14） -->
+    <div class="card">
+      <h2>备份与恢复</h2>
+
+      <div class="row">
+        <button class="primary" id="exportBtn2">⬇ 导出备份文件</button>
+        <button id="importBtn">⬆ 导入备份文件</button>
+        <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+      </div>
+      <p class="note">
+        备份 = 一个文件：手机点导出，通过微信"文件传输助手"发到电脑，电脑上打开本页面点导入即可查看；
+        文件也可存网盘/U盘长期保存。建议每周导出一次。
+      </p>
+    </div>
+
+    <!-- 数据维护（R13/R14） -->
+    <div class="card">
+      <h2>数据维护</h2>
+
+      <div class="row">
+        <button id="resetItemsBtn">恢复默认项目</button>
+        <button class="danger" id="clearAllBtn">清空当前成员数据</button>
+      </div>
+      <p class="note">恢复默认项目：项目列表还原成初始 6 项（不影响已记数据）。清空：删除当前成员的记录和经期（不可恢复，请先备份）。</p>
+    </div>
+
+    <!-- 保险理赔注意事项（R12） -->
+    <div class="card">
+      <h2>保险理赔注意事项</h2>
+
+      <p class="muted" id="insOwner" style="margin-bottom:8px;"></p>
+      <div class="row" style="margin-bottom:8px;"><input type="text" id="insInsurer" placeholder="保险公司，如：中国人寿" maxlength="40"></div>
+      <div class="row" style="margin-bottom:8px;"><input type="text" id="insPlan" placeholder="险种/产品，如：百万医疗险" maxlength="40"></div>
+      <div class="row" style="margin-bottom:8px;"><textarea id="insCoverage" rows="2" placeholder="保障内容与保额"></textarea></div>
+      <div class="row" style="margin-bottom:8px;"><input type="text" id="insPhone" placeholder="理赔电话" maxlength="30"></div>
+      <div class="row" style="margin-bottom:8px;"><textarea id="insNotes" rows="2" placeholder="理赔注意事项"></textarea></div>
+      <div class="row" style="margin-bottom:8px;align-items:center;gap:10px;">
+        <span class="muted" id="insStatus">状态：已启用</span>
+        <button id="insToggleBtn">停用此板块</button>
+      </div>
+      <button class="primary" id="insSaveBtn">保存</button>
+      <p class="note">每个成员各自一份，互不干扰。停用后该成员不再显示此板块。填写后：每次打开页面都会弹出；电脑上常驻「记录」页左侧，手机上可从左侧边缘拉出查看。</p>
+    </div>
+
+    <!-- 云同步（R18–R20；交互逻辑在 js/sync-ui.js） -->
+    <div class="card" id="syncCard">
+      <h2>☁️ 云同步</h2>
+
+      <p class="note" style="margin-top:0;margin-bottom:8px;">
+        电脑和手机数据自动同步：数据存到你自己的 Gitee 私有仓库。
+        首次配置步骤（需一位家人帮忙，约 10 分钟）：① gitee.com 注册账号并新建一个【私有】仓库；
+        ② 在 Gitee「设置 → 私人令牌」生成令牌（只勾选 projects）；③ 把令牌和「用户名/仓库名」填到下面并点「连接并同步」。
+      </p>
+      <div class="row" style="margin-bottom:8px;">
+        <input type="password" id="syncToken" placeholder="Gitee 私人令牌（只存本机，不上传）" autocomplete="off">
+      </div>
+      <div class="row" style="margin-bottom:8px;">
+        <input type="text" id="syncRepo" placeholder="仓库名，如：LML_888/健康数据" autocomplete="off">
+      </div>
+      <div class="row" style="margin-bottom:8px;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button class="primary" id="syncConnectBtn">连接并同步</button>
+        <button id="syncNowBtn">立即同步</button>
+        <button class="ghost" id="syncGuideBtn">使用说明</button>
+      </div>
+      <p class="note" id="syncStatusLine" style="margin-top:4px;"></p>
+      <p class="note" id="syncSize" style="margin-top:4px;"></p>
+      <details class="sync-privacy">
+        <summary>🔒 隐私说明（点开查看）</summary>
+        <p>数据存放在你自己的 Gitee 私有仓库（只有你能看到）；内容为 gzip 压缩、未加密；私人令牌不要告诉别人，如泄露请立即到 Gitee 重置；Gitee 平台方原则上有访问仓库的能力。</p>
+      </details>
+    </div>
+
+    <!-- 版本号（R17） -->
+    <p class="note" style="text-align:center;margin-top:16px;">健康记录 v<span id="appVersion"></span></p>
+
+  </div>
+</div>
+
+<!-- ================= 底部页签（R15） ================= -->
+<nav class="tabbar">
+  <button data-tab="records" class="active"><span class="ico">📝</span>记录</button>
+  <button data-tab="periods" id="periodTabBtn"><span class="ico">🩸</span>经期</button>
+  <button data-tab="items"><span class="ico">🗂</span>项目</button>
+</nav>
+
+<!-- ================= 弹窗容器 ================= -->
+<div class="modal-mask hidden" id="modalMask">
+  <div class="modal-box" id="modalBox"></div>
+</div>
+
+<!-- 保险理赔注意事项：手机左侧拉出（R12） -->
+<div class="ins-handle" id="insHandle">保险理赔注意事项</div>
+<div id="insMask" class="hidden"></div>
+<aside id="insDrawer"></aside>
+
+<!-- 安装引导卡（R16/R21：首次打开显示；js/sync-ui.js 控制显隐） -->
+<div class="guide-mask hidden" id="guideMask">
+  <div class="guide-card" id="guideCard">
+    <h3>📲 把「健康记录」装到桌面</h3>
+    <div class="guide-step"><b>1️⃣ 安卓手机（Chrome / Edge / 华为浏览器）</b><br>打开本页面 → 点右上角菜单「⋮」→ 选「安装应用 / 添加到主屏幕」→ 桌面出现图标。</div>
+    <div class="guide-step"><b>2️⃣ 苹果手机（Safari）</b><br>点底部「分享」按钮 → 选「添加到主屏幕」→ 桌面出现图标。</div>
+    <div class="guide-step"><b>3️⃣ 在微信里打开？</b><br>点右上角「···」→「在浏览器打开」，再按上面的步骤安装。</div>
+    <p class="note">装好后像普通 APP 一样从桌面打开，还能离线查看已同步的数据。</p>
+    <div class="modal-actions">
+      <button class="primary" id="guideOk">知道了</button>
+      <button id="guideConfig">去设置云同步 →</button>
+    </div>
+  </div>
+</div>
+
+<noscript>
+  <div class="card" style="max-width:720px;margin:20px auto;font-size:16px;">本应用需要开启浏览器的 JavaScript 才能使用，请在浏览器设置中开启后重新打开。</div>
+</noscript>
+
+<!-- ================= 模块加载（顺序即依赖顺序） ================= -->
+<script src="js/store.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/app.js"></script>
+<script src="js/records.js"></script>
+<script src="js/period.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/sync-ui.js"></script>
+
+<script>
+  /* Service Worker：仅 https 下注册（R16；file:// 打开时跳过，应用照常可用，用例 C18） */
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
+
+</body>
+</html>

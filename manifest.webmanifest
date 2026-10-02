@@ -1,0 +1,26 @@
+{
+  "name": "健康记录",
+  "short_name": "健康记录",
+  "description": "家庭健康数据记录：身高体重、血压、血糖、过敏药物、经期周期，支持多成员与云同步",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e9f2ec",
+  "theme_color": "#2f9e6e",
+  "icons": [
+    {
+      "src": "icons/icon-192.png", "sizes": "192x192",
+      "type": "image/png", "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png", "sizes": "512x512",
+      "type": "image/png", "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png", "sizes": "512x512",
+      "type": "image/png", "purpose": "maskable"
+    }
+  ]
+}
