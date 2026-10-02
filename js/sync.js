@@ -79,7 +79,9 @@
     if (resp.status === 403) throw err('unauthorized', '令牌无效，请核对后重新填写');
     throw err('api', '令牌验证失败（HTTP ' + resp.status + '）');
   }
-  /* 读云端：data/sync.json → 404 回退仓库根 sync.json；都无 → null（云端无文件） */
+  /* 读云端：data/sync.json → 404 回退仓库根 sync.json；都无 → null（云端无文件）。
+     命中判定 = 单个文件对象且 content 为字符串；Gitee contents 对不存在路径返回 200 + []
+     （目录列表/空数组），与 404 同视「无此文件」继续下一候选路径 */
   async function readRemote() {
     const cfg = getConfig(); if (!cfg) return null;
     for (const p of [FILE_PATH, ROOT_PATH]) {
@@ -87,7 +89,7 @@
       if (resp.status === 404) continue;
       if (!resp.ok) throw err('repo404', '读不到云端仓库（HTTP ' + resp.status + '），请核对仓库名');
       let j; try { j = await resp.json(); } catch { throw err('api', '云端数据读取失败'); }
-      if (!j || typeof j.content !== 'string') throw err('api', '云端数据文件格式不正确');
+      if (Array.isArray(j) || !j || typeof j.content !== 'string') continue; // 数组（目录列表/空列表）与 404 同视「无此文件」
       return { path: p, sha: j.sha, content: j.content };
     }
     return null;
