@@ -36,6 +36,10 @@
   function bytesToUtf8(b) { return new TextDecoder().decode(b); }
   function bytesToB64(bytes) { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(bin); }
   function b64ToBytes(b64) { const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+  /* 仓库路径分段编码（缺陷修复）：整体 encodeURIComponent 会把 'lml_888/health-data' 编成
+     'lml_888%2Fhealth-data'，Gitee API 不认编码斜杠 → 读/写两路径全 404。按 '/' 切分逐段编码、
+     字面 '/' 连接：分隔符保持字面，段内特殊字符（空格/非 ASCII）仍被编码 */
+  function repoPath(repo) { return String(repo).split('/').map(encodeURIComponent).join('/'); }
   /* —— 载荷编码（§2.2）：gzip+base64；无 CompressionStream 回退明文（用例 C17） —— */
   async function encodePayload(db) {
     const json = JSON.stringify(db); if (typeof CompressionStream !== 'undefined') try {
@@ -79,7 +83,7 @@
   async function readRemote() {
     const cfg = getConfig(); if (!cfg) return null;
     for (const p of [FILE_PATH, ROOT_PATH]) {
-      const resp = await apiFetch('/repos/' + encodeURIComponent(cfg.repo) + '/contents/' + p + '?access_token=' + encodeURIComponent(cfg.token));
+      const resp = await apiFetch('/repos/' + repoPath(cfg.repo) + '/contents/' + p + '?access_token=' + encodeURIComponent(cfg.token));
       if (resp.status === 404) continue;
       if (!resp.ok) throw err('repo404', '读不到云端仓库（HTTP ' + resp.status + '），请核对仓库名');
       let j; try { j = await resp.json(); } catch { throw err('api', '云端数据读取失败'); }
@@ -96,7 +100,7 @@
     for (const p of paths) {
       const body = { access_token: cfg.token, content: bytesToB64(utf8ToBytes(JSON.stringify(file))), message: '健康记录同步', branch: 'master' };
       if (remote && remote.sha) body.sha = remote.sha;
-      const resp = await apiFetch('/repos/' + encodeURIComponent(cfg.repo) + '/contents/' + p, {
+      const resp = await apiFetch('/repos/' + repoPath(cfg.repo) + '/contents/' + p, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),

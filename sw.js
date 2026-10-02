@@ -2,7 +2,7 @@
    预缓存应用壳；导航请求 network-first（拿新版，失败回退缓存=离线可用）；
    静态资源 cache-first；不缓存/不拦截 gitee.com/api 同步请求；版本号变更时清理旧缓存。 */
 'use strict';
-const VERSION = 'health-v1';
+const VERSION = 'health-v2';
 const SHELL = [
   './',
   './index.html',
